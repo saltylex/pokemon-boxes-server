@@ -65,8 +65,8 @@ export const PokemonProvider: React.FC = ({children}) => {
                         pokemonList.list.find((pkmSaved) => pkmSaved.id === pkm1.id).id = rep.body.id;
                         // and then in our DB we do the same
                         const query = `UPDATE POKEMON
-                                       SET id = ${rep.body.id}
-                                       WHERE id = ${pkm1.id}`
+                                   SET id = ${rep.body.id}
+                                   WHERE id = ${pkm1.id}`
                         if ("executeSql" in pokemonList.db) {
                             pokemonList.db.executeSql(query);
                         }
@@ -104,10 +104,10 @@ export const PokemonProvider: React.FC = ({children}) => {
                             db: db
                         }))
                         const query = `SELECT *
-                                       FROM POKEMON
-                                       WHERE id = ${newPkm.id}`
+                                                FROM POKEMON
+                                                WHERE id = ${newPkm.id}`
                         const result = await db.executeSql(query);
-                        if (result[0].rows.length == 0) {
+                        if(result[0].rows.length == 0){
                             addPokemonToDatabase(db, newPkm).then();
                         }
                     } catch (e) {
@@ -137,7 +137,6 @@ export const PokemonProvider: React.FC = ({children}) => {
             const message = JSON.parse(event.data);
             if (message.type == "update") {
                 const messagePokemon = message.pokemon as Pokemon;
-                console.log(messagePokemon);
                 updatePokemonInDatabase(pokemonList.db, messagePokemon).then();
                 setPokemonList(prevState => ({
                     ...prevState,
@@ -146,23 +145,24 @@ export const PokemonProvider: React.FC = ({children}) => {
             }
             if (message.type == "delete") {
                 const messageId = message.id;
-                deletePokemonFromDatabase(pokemonList.db, messageId).then();
-                setPokemonList(prevState => ({
-                    ...prevState,
-                    list: prevState.list.filter(p => p.id !== messageId),
-                }))
+                    deletePokemonFromDatabase(pokemonList.db, messageId).then();
+                    setPokemonList(prevState => ({
+                        ...prevState,
+                        list: prevState.list.filter(p => p.id !== messageId),
+                    }))
 
             }
             if (message.type == "create") {
                 const messagePokemon = message.pokemon as Pokemon;
-                const result = pokemonList.list.find(pokemon => pokemon.id == messagePokemon.id)
-                if (!result) {
-                    addPokemonToDatabase(pokemonList.db, messagePokemon).then();
-                    setPokemonList(prevState => ({
-                        ...prevState,
-                        list: [...prevState.list.filter((poke) => poke.id !== messagePokemon.id), messagePokemon],
-                    }));
-                }
+                    const result = pokemonList.list.find(pokemon=>pokemon.id == messagePokemon.id)
+                    if (!result) {
+                        addPokemonToDatabase(pokemonList.db, messagePokemon).then();
+                        setPokemonList(prevState => ({
+                            ...prevState,
+                            list: [...prevState.list.filter((poke) => poke.id !== messagePokemon.id), messagePokemon],
+                        }));
+                    }
+
 
 
             }
@@ -276,7 +276,7 @@ export const PokemonProvider: React.FC = ({children}) => {
             }).then((rep) => {
                 console.log('DELETE ENTITY ' + id + ' STATUS: ' + rep.status)
             });
-            deletePokemonFromDatabase(pokemonList.db, id).then(() => {});
+            deletePokemonFromDatabase(pokemonList.db, id).then(() => console.log('done'));
             setPokemonList(prevState => ({
                 ...prevState,
                 list: prevState.list.filter(p => p.id !== id),
@@ -294,12 +294,11 @@ export const PokemonProvider: React.FC = ({children}) => {
                 ],
                 {cancelable: true}
             );
-            //     deletePokemonFromDatabase(pokemonList.db, id).then(() => console.log('done'));
-            //     setPokemonList(prevState => ({
-            //         ...prevState,
-            //         list: prevState.list.filter(p => p.id !== id),
-            //     }));
-            //
+            // deletePokemonFromDatabase(pokemonList.db, id).then(() => console.log('done'));
+            // setPokemonList(prevState => ({
+            //     ...prevState,
+            //     list: prevState.list.filter(p => p.id !== id),
+            // }));
         }
     }
 
