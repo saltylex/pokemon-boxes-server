@@ -39,8 +39,6 @@ export const PokemonProvider: React.FC = ({children}) => {
         const conn = await NetInfo.fetch();
         return conn.isConnected;
     }
-
-    
     useEffect(() => {
         async function fetchData() {
             const db = await getDatabaseConnection();
@@ -68,6 +66,12 @@ export const PokemonProvider: React.FC = ({children}) => {
                             list: [...prevState.list.filter((poke) => poke.id !== newPkm.id), newPkm],
                             db: db
                         }))
+                        const result = await db.executeSql(`SELECT *
+                                                FROM POKEMON
+                                                WHERE id = ${newPkm.id}`);
+                        if(result[0].rows.length == 0){
+                            addPokemonToDatabase(db, newPkm).then();
+                        }
                     } catch (e) {
                         throw Error('Load failed!');
                     }
@@ -77,11 +81,57 @@ export const PokemonProvider: React.FC = ({children}) => {
             } else {
                 const pokemon = await getPokemon(db);
                 setPokemonList({list: pokemon, db: db})
+
             }
         }
 
         fetchData().then();
     }, [])
+
+    useEffect(() => {
+        const ws = new WebSocket('ws://192.168.1.102:8000/ws/pokemon');
+
+        ws.onopen = () => {
+            console.log('WebSocket connected');
+        };
+
+        ws.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            if (message.type == "update") {
+                const messagePokemon = message.pokemon as Pokemon;
+                updatePokemonInDatabase(pokemonList.db, messagePokemon).then();
+                setPokemonList(prevState => ({
+                    ...prevState,
+                    list: prevState.list.map(p => (p.id === messagePokemon.id ? messagePokemon : p)),
+                }));
+            }
+            if (message.type == "delete") {
+                const messageId = message.id;
+                deletePokemonFromDatabase(pokemonList.db, messageId).then();
+                setPokemonList(prevState => ({
+                    ...prevState,
+                    list: prevState.list.filter(p => p.id !== messageId),
+                }));
+            }
+            if (message.type == "create") {
+                const messagePokemon = message.pokemon as Pokemon;
+                addPokemonToDatabase(pokemonList.db, messagePokemon).then();
+                setPokemonList(prevState => ({
+                    ...prevState,
+                    list: [...prevState.list.filter((poke) => poke.id !== messagePokemon.id), messagePokemon],
+                }));
+            }
+
+        };
+
+        ws.onclose = () => {
+            console.log('WebSocket disconnected');
+        };
+
+        return () => {
+            ws.close();
+        };
+    }, []);
 
 
     const addPokemon = async (pokemon: Pokemon) => {
@@ -118,7 +168,9 @@ export const PokemonProvider: React.FC = ({children}) => {
                         pokemonList.db.executeSql(query);
                     }
 
-                }).catch((e) => {throw Error('Creating entity from local failed! '    + e);})
+                }).catch((e) => {
+                    throw Error('Creating entity from local failed! ' + e);
+                })
                 ;
                 setPokemonList(prevState => ({
                     ...prevState,

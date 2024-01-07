@@ -25,12 +25,13 @@ SECRET_KEY = 'django-insecure-36e^=wl&_-x3qqicry90+#f0-vvsxnm_nl!=)5^1^ri(te3e88
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['192.168.1.102']
+ALLOWED_HOSTS = ['192.168.1.102', 'localhost']
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -38,7 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'pokemon_api'
+    'pokemon_api',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -70,8 +72,13 @@ TEMPLATES = [
     },
 ]
 
+ASGI_APPLICATION = 'lab5_ma.asgi.application'
 WSGI_APPLICATION = 'lab5_ma.wsgi.application'
-
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
