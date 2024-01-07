@@ -44,6 +44,43 @@ export const PokemonProvider: React.FC = ({children}) => {
             const db = await getDatabaseConnection();
             await createTable(db);
             if (await checkConnectivity()) {
+                const storedPokemon = await AsyncStorage.getItem('storedPokemon');
+                const parsedPokemon: Pokemon[] = storedPokemon ? JSON.parse(storedPokemon) : [];
+                // for each pokemon, we add it to server, server assigns it an ID,
+                // then we save the ID everywhere (UI, DB)
+                for (const pkm1 of parsedPokemon) {
+                    fetch("http://192.168.1.102:8000/pokemon/all/", {
+                        method: "POST",
+                        headers: {
+                            Accept: "application/json",
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(pkm1),
+                    })
+                        .then(async (response) => {
+                            return response.json().then(data => ({status: response.status, body: data}))
+                        }).then((rep) => {
+                        console.log('CREATED ENTITY FROM LOCAL STORAGE ' + rep.body.name + ' STATUS: ' + rep.status);
+                        // in our UI we substitute the ID
+                        pokemonList.list.find((pkmSaved) => pkmSaved.id === pkm1.id).id = rep.body.id;
+                        // and then in our DB we do the same
+                        const query = `UPDATE POKEMON
+                                       SET id = ${rep.body.id}
+                                       WHERE id = ${pkm1.id}`
+                        if ("executeSql" in pokemonList.db) {
+                            pokemonList.db.executeSql(query);
+                        }
+
+                    }).catch((e) => {
+                        throw Error('Creating entity from local failed! ' + e);
+                    })
+                    ;
+                    setPokemonList(prevState => ({
+                        ...prevState,
+                        list: [...prevState.list.filter((poke) => poke.id !== pkm1.id), pkm1],
+                    }));
+                    AsyncStorage.setItem('storedPokemon', JSON.stringify([]));
+                }
                 const response = await fetch('http://192.168.1.102:8000/pokemon/all/');
                 const json = await response.json();
                 console.log('Loading Pokemon...');
@@ -66,10 +103,11 @@ export const PokemonProvider: React.FC = ({children}) => {
                             list: [...prevState.list.filter((poke) => poke.id !== newPkm.id), newPkm],
                             db: db
                         }))
-                        const result = await db.executeSql(`SELECT *
-                                                FROM POKEMON
-                                                WHERE id = ${newPkm.id}`);
-                        if(result[0].rows.length == 0){
+                        const query = `SELECT *
+                                       FROM POKEMON
+                                       WHERE id = ${newPkm.id}`
+                        const result = await db.executeSql(query);
+                        if (result[0].rows.length == 0) {
                             addPokemonToDatabase(db, newPkm).then();
                         }
                     } catch (e) {
@@ -95,10 +133,11 @@ export const PokemonProvider: React.FC = ({children}) => {
             console.log('WebSocket connected');
         };
 
-        ws.onmessage = (event) => {
+        ws.onmessage = async (event) => {
             const message = JSON.parse(event.data);
             if (message.type == "update") {
                 const messagePokemon = message.pokemon as Pokemon;
+                console.log(messagePokemon);
                 updatePokemonInDatabase(pokemonList.db, messagePokemon).then();
                 setPokemonList(prevState => ({
                     ...prevState,
@@ -111,15 +150,21 @@ export const PokemonProvider: React.FC = ({children}) => {
                 setPokemonList(prevState => ({
                     ...prevState,
                     list: prevState.list.filter(p => p.id !== messageId),
-                }));
+                }))
+
             }
             if (message.type == "create") {
                 const messagePokemon = message.pokemon as Pokemon;
-                addPokemonToDatabase(pokemonList.db, messagePokemon).then();
-                setPokemonList(prevState => ({
-                    ...prevState,
-                    list: [...prevState.list.filter((poke) => poke.id !== messagePokemon.id), messagePokemon],
-                }));
+                const result = pokemonList.list.find(pokemon => pokemon.id == messagePokemon.id)
+                if (!result) {
+                    addPokemonToDatabase(pokemonList.db, messagePokemon).then();
+                    setPokemonList(prevState => ({
+                        ...prevState,
+                        list: [...prevState.list.filter((poke) => poke.id !== messagePokemon.id), messagePokemon],
+                    }));
+                }
+
+
             }
 
         };
@@ -141,43 +186,7 @@ export const PokemonProvider: React.FC = ({children}) => {
             // internet: we add the items that were not added, and we reassign their id
             // based on the one provided by the server.
             // STEP 1: get pokemon from AsyncStorage
-            const storedPokemon = await AsyncStorage.getItem('storedPokemon');
-            const parsedPokemon: Pokemon[] = storedPokemon ? JSON.parse(storedPokemon) : [];
-            // for each pokemon, we add it to server, server assigns it an ID,
-            // then we save the ID everywhere (UI, DB)
-            for (const pkm1 of parsedPokemon) {
-                fetch("http://192.168.1.102:8000/pokemon/all/", {
-                    method: "POST",
-                    headers: {
-                        Accept: "application/json",
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify(pkm1),
-                })
-                    .then(async (response) => {
-                        return response.json().then(data => ({status: response.status, body: data}))
-                    }).then((rep) => {
-                    console.log('CREATED ENTITY FROM LOCAL STORAGE ' + rep.body.name + ' STATUS: ' + rep.status);
-                    // in our UI we substitute the ID
-                    pokemonList.list.find((pkmSaved) => pkmSaved.id === pkm1.id).id = rep.body.id;
-                    // and then in our DB we do the same
-                    const query = `UPDATE POKEMON
-                                   SET id = ${rep.body.id}
-                                   WHERE id = ${pkm1.id}`
-                    if ("executeSql" in pokemonList.db) {
-                        pokemonList.db.executeSql(query);
-                    }
 
-                }).catch((e) => {
-                    throw Error('Creating entity from local failed! ' + e);
-                })
-                ;
-                setPokemonList(prevState => ({
-                    ...prevState,
-                    list: [...prevState.list.filter((poke) => poke.id !== pkm1.id), pkm1],
-                }));
-                AsyncStorage.setItem('storedPokemon', JSON.stringify([]));
-            }
             // STEP 2: we add the current pokemon to the server and all.
             fetch("http://192.168.1.102:8000/pokemon/all/", {
                 method: "POST",
@@ -267,7 +276,7 @@ export const PokemonProvider: React.FC = ({children}) => {
             }).then((rep) => {
                 console.log('DELETE ENTITY ' + id + ' STATUS: ' + rep.status)
             });
-            deletePokemonFromDatabase(pokemonList.db, id).then(() => console.log('done'));
+            deletePokemonFromDatabase(pokemonList.db, id).then(() => {});
             setPokemonList(prevState => ({
                 ...prevState,
                 list: prevState.list.filter(p => p.id !== id),
@@ -285,11 +294,12 @@ export const PokemonProvider: React.FC = ({children}) => {
                 ],
                 {cancelable: true}
             );
-            // deletePokemonFromDatabase(pokemonList.db, id).then(() => console.log('done'));
-            // setPokemonList(prevState => ({
-            //     ...prevState,
-            //     list: prevState.list.filter(p => p.id !== id),
-            // }));
+            //     deletePokemonFromDatabase(pokemonList.db, id).then(() => console.log('done'));
+            //     setPokemonList(prevState => ({
+            //         ...prevState,
+            //         list: prevState.list.filter(p => p.id !== id),
+            //     }));
+            //
         }
     }
 
