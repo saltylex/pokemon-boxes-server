@@ -49,7 +49,6 @@ export const getPokemon = async (db: SQLiteDatabase | null): Promise<Pokemon[]> 
         let result;
         if ("executeSql" in db) {
             result = await db.executeSql('SELECT * FROM POKEMON;');
-            console.log(result);
         }
         result.forEach(p => {
             for (let i = 0; i < p.rows.length; i++) pokemon.push(p.rows.item(i))

@@ -39,6 +39,8 @@ export const PokemonProvider: React.FC = ({children}) => {
         const conn = await NetInfo.fetch();
         return conn.isConnected;
     }
+
+    
     useEffect(() => {
         async function fetchData() {
             const db = await getDatabaseConnection();
@@ -67,7 +69,7 @@ export const PokemonProvider: React.FC = ({children}) => {
                             db: db
                         }))
                     } catch (e) {
-                        throw Error('oopsie');
+                        throw Error('Load failed!');
                     }
                 }
                 console.log('Loaded!');
@@ -116,10 +118,11 @@ export const PokemonProvider: React.FC = ({children}) => {
                         pokemonList.db.executeSql(query);
                     }
 
-                });
+                }).catch((e) => {throw Error('Creating entity from local failed! '    + e);})
+                ;
                 setPokemonList(prevState => ({
                     ...prevState,
-                    list:[...prevState.list.filter((poke) => poke.id !== pkm1.id), pkm1],
+                    list: [...prevState.list.filter((poke) => poke.id !== pkm1.id), pkm1],
                 }));
                 AsyncStorage.setItem('storedPokemon', JSON.stringify([]));
             }
@@ -135,7 +138,9 @@ export const PokemonProvider: React.FC = ({children}) => {
                 .then(async (response) => {
                     return response.json().then(data => ({status: response.status, body: data}))
                 }).then((rep) => {
-                console.log('CREATED ENTITY ' + rep.body.name +' STATUS: ' + rep.status)
+                console.log('CREATED ENTITY ' + rep.body.name + ' STATUS: ' + rep.status)
+            }).catch((e) => {
+                throw Error('Entity creation failed! ' + e);
             })
             // then we add it to DB and UI
             addPokemonToDatabase(pokemonList.db, pokemon).then();
@@ -155,6 +160,7 @@ export const PokemonProvider: React.FC = ({children}) => {
 
             await AsyncStorage.setItem('storedPokemon', JSON.stringify([...parsedPokemon, pokemon]));
             addPokemonToDatabase(pokemonList.db, pokemon).then();
+
             setPokemonList(prevState => ({
                 ...prevState,
                 list: [...prevState.list, pokemon],
@@ -175,7 +181,7 @@ export const PokemonProvider: React.FC = ({children}) => {
                 .then(async (response) => {
                     return response.json().then(data => ({status: response.status, body: data}))
                 }).then((rep) => {
-                console.log('UPDATE ENTITY ' + rep.body.name +' STATUS: ' + rep.status)
+                console.log('UPDATE ENTITY ' + rep.body.name + ' STATUS: ' + rep.status)
             })
             updatePokemonInDatabase(pokemonList.db, updatedPokemon).then();
             setPokemonList(prevState => ({
@@ -185,7 +191,7 @@ export const PokemonProvider: React.FC = ({children}) => {
         } else {
             Alert.alert(
                 'Warning',
-                'Internet connection off. Your changes will not be saved on internet restart!',
+                'Internet connection off. Update unavailable!',
                 [
                     {
                         text: 'OK', onPress: () => {
@@ -194,11 +200,11 @@ export const PokemonProvider: React.FC = ({children}) => {
                 ],
                 {cancelable: true}
             );
-            updatePokemonInDatabase(pokemonList.db, updatedPokemon).then();
-            setPokemonList(prevState => ({
-                ...prevState,
-                list: prevState.list.map(p => (p.id === updatedPokemon.id ? updatedPokemon : p)),
-            }));
+            // updatePokemonInDatabase(pokemonList.db, updatedPokemon).then();
+            // setPokemonList(prevState => ({
+            //     ...prevState,
+            //     list: prevState.list.map(p => (p.id === updatedPokemon.id ? updatedPokemon : p)),
+            // }));
         }
     };
 
@@ -218,17 +224,20 @@ export const PokemonProvider: React.FC = ({children}) => {
         } else {
             Alert.alert(
                 'Warning',
-                'Internet connection off. Your changes will not be saved!',
+                'Internet connection off. Delete unavailable!',
                 [
-                    {text: 'OK', onPress: () => console.log('OK Pressed')},
+                    {
+                        text: 'OK', onPress: () => {
+                        }
+                    },
                 ],
                 {cancelable: true}
             );
-            deletePokemonFromDatabase(pokemonList.db, id).then(() => console.log('done'));
-            setPokemonList(prevState => ({
-                ...prevState,
-                list: prevState.list.filter(p => p.id !== id),
-            }));
+            // deletePokemonFromDatabase(pokemonList.db, id).then(() => console.log('done'));
+            // setPokemonList(prevState => ({
+            //     ...prevState,
+            //     list: prevState.list.filter(p => p.id !== id),
+            // }));
         }
     }
 
